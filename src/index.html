@@ -19,11 +19,11 @@
         <div class="gallery">
             <!-- 照片将通过JavaScript动态加载 -->
         </div>
-        <div class="upload-form">
-            <h3>上传新照片</h3>
-            <input type="file" id="photo-upload" accept="image/*">
-            <button id="upload-btn">上传到GitHub</button>
-        </div>
+        <!-- 在适当位置添加 -->
+        <form id="upload-form">
+            <input type="file" id="file-input" accept="image/*" required>
+            <button type="submit">上传图片</button>
+        </form>
     </main>
     <script src="js/main.js"></script>
 </body>

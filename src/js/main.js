@@ -69,68 +69,99 @@ window.addEventListener('DOMContentLoaded', init);
 // 添加上传功能
 // 配置GitHub信息
 const GITHUB = {
-    username: process.env.GITHUB_USERNAME,
-    repo: process.env.GITHUB_REPO,
-    token: process.env.GITHUB_TOKEN,
+    username: 'lovexw',
+    repo: 'the-post-chaise',
+    token: process.env.GH_TOKEN || '', // 从环境变量获取
     branch: 'main',
     folder: 'assets/images'
 };
 
 // 完整的图片上传函数
+// 上传功能实现
 async function uploadToGitHub(file) {
-    const dateStr = new Date().toISOString().split('T')[0].replace(/-/g, '');
-    const ext = file.name.split('.').pop().toLowerCase();
-    const fileName = `${dateStr}.${ext}`;
+    // 文件类型验证
+    if (!file.type.match('image.*')) {
+        alert('请上传图片文件');
+        return;
+    }
+
+    // 文件大小限制(5MB)
+    if (file.size > 5 * 1024 * 1024) {
+        alert('图片大小不能超过5MB');
+        return;
+    }
+
+    // 使用文件名作为日期(格式:YYYYMMDD)
+    const dateStr = file.name.split('.')[0];
+    const year = dateStr.substring(0, 4);
+    const month = dateStr.substring(4, 6);
     
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    
-    return new Promise((resolve, reject) => {
-        reader.onload = async () => {
-            const content = reader.result.split(',')[1];
-            const apiUrl = `https://api.github.com/repos/${GITHUB.username}/${GITHUB.repo}/contents/${GITHUB.folder}/${fileName}`;
-            
-            try {
-                const response = await fetch(apiUrl, {
-                    method: 'PUT',
-                    headers: {
-                        'Authorization': `token ${GITHUB.token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        message: `Upload ${fileName}`,
-                        content: content,
-                        branch: GITHUB.branch
-                    })
-                });
-                
-                if (!response.ok) {
-                    throw new Error('上传失败');
-                }
-                
-                resolve();
-            } catch (error) {
-                reject(error);
+    try {
+        const content = await toBase64(file);
+        const path = `${GITHUB.folder}/${year}/${month}/${file.name}`;
+        
+        const response = await fetch(
+            `https://api.github.com/repos/${GITHUB.username}/${GITHUB.repo}/contents/${path}`,
+            {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `token ${GITHUB.token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    message: `Upload ${file.name}`,
+                    content: content.split(',')[1],
+                    branch: GITHUB.branch
+                })
             }
-        };
+        );
+
+        if (!response.ok) {
+            throw new Error('上传失败');
+        }
+        
+        alert('上传成功');
+        fetchPhotos(); // 刷新图片列表
+    } catch (error) {
+        console.error('上传错误:', error);
+        alert(`上传失败: ${error.message}`);
+    }
+}
+
+function toBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = error => reject(error);
     });
 }
 
-// 更新上传按钮事件处理
-document.getElementById('upload-btn').addEventListener('click', async () => {
-    const fileInput = document.getElementById('photo-upload');
-    if (!fileInput.files.length) {
-        alert('请选择要上传的图片');
-        return;
-    }
-    
-    try {
-        await uploadToGitHub(fileInput.files[0]);
-        alert('上传成功！');
-        // 刷新图片列表
-        init();
-    } catch (error) {
-        console.error('上传错误:', error);
-        alert('上传失败: ' + error.message);
-    }
-});
+// 初始化上传表单
+function initUploadForm() {
+    const form = document.getElementById('upload-form');
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fileInput = document.getElementById('file-input');
+        if (fileInput.files.length > 0) {
+            await uploadToGitHub(fileInput.files[0]);
+        }
+    });
+}
+
+// 在init函数中调用
+function init() {
+    const photos = await fetchPhotos();
+    // 设置年份过滤器点击事件
+    document.querySelectorAll('.year-filter button').forEach(button => {
+        button.addEventListener('click', () => {
+            document.querySelector('.year-filter button.active').classList.remove('active');
+            button.classList.add('active');
+            renderGallery(button.dataset.year);
+        });
+    });
+
+    // 初始渲染
+    renderGallery();
+    initUploadForm();
+}
