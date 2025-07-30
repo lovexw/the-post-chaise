@@ -150,8 +150,18 @@ function initUploadForm() {
 }
 
 // 在init函数中调用
-function init() {
-    const photos = await fetchPhotos();
+async function init() {
+    // 获取照片数据并存储到变量中
+    let photos = [];
+    try {
+        photos = await fetchPhotos();
+    } catch (error) {
+        console.error('获取照片失败:', error);
+        // 添加用户友好的错误提示
+        alert('无法加载照片，请检查网络连接或稍后再试');
+        // 可以在这里添加重试逻辑
+        return [];
+    }
     // 设置年份过滤器点击事件
     document.querySelectorAll('.year-filter button').forEach(button => {
         button.addEventListener('click', () => {
